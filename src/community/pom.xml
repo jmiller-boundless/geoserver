@@ -436,5 +436,11 @@
         <module>gwc-distributed</module>
       </modules>
     </profile>
+    <profile>
+      <id>vectortiles</id>
+        <modules>
+          <module>vectortiles</module>
+        </modules>
+    </profile>    
   </profiles>
 </project>
