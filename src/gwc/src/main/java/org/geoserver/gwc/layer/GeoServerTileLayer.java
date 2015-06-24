@@ -1194,4 +1194,16 @@ public class GeoServerTileLayer extends TileLayer implements ProxyLayer {
     public void setTransientLayer(boolean transientLayer){
         return;
     }
+
+	@Override
+	public String getBlobStoreId() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void setBlobStoreId(String arg0) {
+		// TODO Auto-generated method stub
+		
+	}
 }
