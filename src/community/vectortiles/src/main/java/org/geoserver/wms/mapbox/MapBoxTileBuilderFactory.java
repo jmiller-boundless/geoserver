@@ -2,21 +2,26 @@
  * This code is licensed under the GPL 2.0 license, available at the root
  * application directory.
  */
-package org.geoserver.wms.geojson;
+package org.geoserver.wms.mapbox;
 
 import java.awt.Rectangle;
 import java.util.Set;
 
-import org.geoserver.wms.vector.VectorTileBuilder;
 import org.geoserver.wms.vector.VectorTileBuilderFactory;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 
 import com.google.common.collect.ImmutableSet;
 
-public class GeoJsonBuilderFactory implements VectorTileBuilderFactory {
-    public static final String MIME_TYPE = "application/json;type=geojson";
+/**
+ * 
+ * @author Niels Charlier
+ *
+ */
+public class MapBoxTileBuilderFactory implements VectorTileBuilderFactory {
 
-    public static final Set<String> OUTPUT_FORMATS = ImmutableSet.of(MIME_TYPE, "geojson");
+    public static final String MIME_TYPE = "application/x-protobuf;type=mapbox-vector";
+
+    public static final Set<String> OUTPUT_FORMATS = ImmutableSet.of(MIME_TYPE, "pbf");
 
     @Override
     public Set<String> getOutputFormats() {
@@ -29,8 +34,8 @@ public class GeoJsonBuilderFactory implements VectorTileBuilderFactory {
     }
 
     @Override
-    public VectorTileBuilder newBuilder(Rectangle screenSize, ReferencedEnvelope mapArea) {
-        return new GeoJsonWMSBuilder(screenSize, mapArea);
+    public MapBoxTileBuilder newBuilder(Rectangle screenSize, ReferencedEnvelope mapArea) {
+        return new MapBoxTileBuilder(screenSize, mapArea);
     }
 
 }

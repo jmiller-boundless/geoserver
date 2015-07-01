@@ -1,185 +1,122 @@
+/* (c) 2015 Open Source Geospatial Foundation - all rights reserved
+ * This code is licensed under the GPL 2.0 license, available at the root
+ * application directory.
+ */
 package org.geoserver.wms.geojson;
 
 import static org.geoserver.wms.geojson.GeoJsonBuilderFactory.MIME_TYPE;
 
 import java.awt.Rectangle;
-import java.awt.geom.AffineTransform;
-import java.awt.geom.NoninvertibleTransformException;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import javax.annotation.Nullable;
-
-import net.sf.json.util.JSONBuilder;
+import javax.measure.unit.SI;
+import javax.measure.unit.Unit;
 
 import org.apache.commons.io.output.DeferredFileOutputStream;
 import org.geoserver.wms.WMSMapContent;
 import org.geoserver.wms.WebMap;
 import org.geoserver.wms.map.RawMap;
-import org.geoserver.wms.topojson.TopoGeom;
 import org.geoserver.wms.vector.DeferredFileOutputStreamWebMap;
 import org.geoserver.wms.vector.VectorTileBuilder;
-import org.opengis.feature.Attribute;
-import org.opengis.feature.ComplexAttribute;
-import org.opengis.feature.Feature;
-import org.opengis.feature.GeometryAttribute;
-import org.opengis.feature.Property;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.GeometryDescriptor;
-import org.opengis.geometry.MismatchedDimensionException;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.ReferenceIdentifier;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.TransformException;
-import org.geoserver.wfs.json.GeoJSONBuilder;
 import org.geotools.geometry.jts.ReferencedEnvelope;
-import org.geotools.gml2.SrsSyntax;
 import org.geotools.referencing.CRS;
-import org.geotools.referencing.NamedIdentifier;
-import org.geotools.renderer.lite.RendererUtilities;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Multimap;
 import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.geom.GeometryCollection;
-import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.geom.LineString;
 import com.vividsolutions.jts.geom.PrecisionModel;
+import com.vividsolutions.jts.precision.CoordinatePrecisionReducerFilter;
 
 public class GeoJsonWMSBuilder implements VectorTileBuilder {
-	
-    
+
     private Writer writer;
-    
-    DeferredFileOutputStream out;
-    
+
+    private CoordinatePrecisionReducerFilter precisionReducerFilter;
+
+    private DeferredFileOutputStream out;
+
     private org.geoserver.wfs.json.GeoJSONBuilder jsonWriter;
-    
 
     public GeoJsonWMSBuilder(Rectangle mapSize, ReferencedEnvelope mapArea) {
-       
-        
-        final int threshold = 8096;
-        out = new DeferredFileOutputStream(threshold, "geojson",
-                ".geojson", null);
+
+        final int memotyBufferThreshold = 8096;
+        out = new DeferredFileOutputStream(memotyBufferThreshold, "geojson", ".geojson", null);
         writer = new OutputStreamWriter(out, Charsets.UTF_8);
         jsonWriter = new org.geoserver.wfs.json.GeoJSONBuilder(writer);
-        jsonWriter.object().key("type").value("FeatureCollection");
+        jsonWriter.object();// start root object
+        jsonWriter.key("type").value("FeatureCollection");
         jsonWriter.key("totalFeatures").value("unknown");
         jsonWriter.key("features");
         jsonWriter.array();
+
+        CoordinateReferenceSystem mapCrs = mapArea.getCoordinateReferenceSystem();
+        jsonWriter.setAxisOrder(CRS.getAxisOrder(mapCrs));
+
+        Unit<?> unit = mapCrs.getCoordinateSystem().getAxis(0).getUnit();
+        Unit<?> standardUnit = unit.getStandardUnit();
+
+        PrecisionModel pm = null;
+        if (SI.RADIAN.equals(standardUnit)) {
+            pm = new PrecisionModel(1e6);// truncate coords at 6 decimals
+        } else if (SI.METRE.equals(standardUnit)) {
+            pm = new PrecisionModel(100);// truncate coords at 2 decimals
+        }
+        if (pm != null) {
+            precisionReducerFilter = new CoordinatePrecisionReducerFilter(pm);
+        }
     }
 
-	@Override
-	public void addFeature(SimpleFeature feature) {
-		CoordinateReferenceSystem crs = null;
-		boolean hasGeom = false;
-		jsonWriter.object();
+    @Override
+    public void addFeature(String layerName, String featureId, String geometryName, Geometry aGeom,
+            Map<String, Object> properties) {
+
+        if (precisionReducerFilter != null) {
+            aGeom.apply(precisionReducerFilter);
+        }
+
+        jsonWriter.object();
         jsonWriter.key("type").value("Feature");
 
-        SimpleFeatureType fType = feature.getFeatureType();
-        List<AttributeDescriptor>types = fType.getAttributeDescriptors();
+        jsonWriter.key("id").value(featureId);
 
-       
-        jsonWriter.key("id").value(feature.getID());
-       
-        
-        GeometryDescriptor defaultGeomType = fType.getGeometryDescriptor();
-        if(defaultGeomType != null) {
-            CoordinateReferenceSystem featureCrs =
-                    defaultGeomType.getCoordinateReferenceSystem();
-            
-            jsonWriter.setAxisOrder(CRS.getAxisOrder(featureCrs));
-            
-            if (crs == null)
-                crs = featureCrs;
-        } else  {
-            // If we don't know, assume EAST_NORTH so that no swapping occurs
-            jsonWriter.setAxisOrder(CRS.AxisOrder.EAST_NORTH);
-        }
-        
         jsonWriter.key("geometry");
-        Geometry aGeom = (Geometry) feature.getDefaultGeometry();
 
-        if (aGeom == null) {
-            // In case the default geometry is not set, we will
-            // just use the first geometry we find
-            for (int j = 0; j < types.size() && aGeom == null; j++) {
-                Object value = feature.getAttribute(j);
-                if (value != null && value instanceof Geometry) {
-                    aGeom = (Geometry) value;
-                }
-            }
-        }
         // Write the geometry, whether it is a null or not
-        if (aGeom != null) {
-            jsonWriter.writeGeom(aGeom);
-            hasGeom = true;
-        } else {
-            jsonWriter.value(null);
-        }
-        if (defaultGeomType != null)
-            jsonWriter.key("geometry_name").value(defaultGeomType.getLocalName());
+        jsonWriter.writeGeom(aGeom);
+        jsonWriter.key("geometry_name").value(geometryName);
 
         jsonWriter.key("properties");
         jsonWriter.object();
 
-        for (int j = 0; j < types.size(); j++) {
-            Object value = feature.getAttribute(j);
-            AttributeDescriptor ad = types.get(j);
-            
+        for (Map.Entry<String, Object> e : properties.entrySet()) {
+            String attributeName = e.getKey();
+            Object value = e.getValue();
 
-            if (value != null) {
-                if (value instanceof Geometry) {
-                    // This is an area of the spec where they
-                    // decided to 'let convention evolve',
-                    // that is how to handle multiple
-                    // geometries. My take is to print the
-                    // geometry here if it's not the default.
-                    // If it's the default that you already
-                    // printed above, so you don't need it here.
-                    if (ad.equals(defaultGeomType)) {
-                        // Do nothing, we wrote it above
-                        // jsonWriter.value("geometry_name");
-                    } else {
-                        jsonWriter.key(ad.getLocalName());
-                        jsonWriter.writeGeom((Geometry) value);
-                    }
-                } else {
-                    jsonWriter.key(ad.getLocalName());
-                    jsonWriter.value(value);
-                }
-
-            } else {
-                jsonWriter.key(ad.getLocalName());
+            jsonWriter.key(attributeName);
+            if (value == null) {
                 jsonWriter.value(null);
+            } else {
+                jsonWriter.value(value);
             }
         }
-
 
         jsonWriter.endObject(); // end the properties
         jsonWriter.endObject(); // end the feature
 
-	}
+    }
 
-	@Override
-	public WebMap build(WMSMapContent mapContent) throws IOException {
-		jsonWriter.endArray(); // end features
-		writer.flush();
+    @Override
+    public WebMap build(WMSMapContent mapContent) throws IOException {
+        jsonWriter.endArray(); // end features
+        jsonWriter.endObject();// end root object
+        writer.flush();
         writer.close();
         out.close();
-        
+
         long length;
         RawMap map;
         if (out.isInMemory()) {
@@ -194,8 +131,5 @@ public class GeoJsonWMSBuilder implements VectorTileBuilder {
         map.setResponseHeader("Content-Length", String.valueOf(length));
 
         return map;
-	}
-	
-   
-	
+    }
 }

@@ -257,13 +257,8 @@ class GeoServerTileLayerEditor extends FormComponentPanel<GeoServerTileLayerInfo
         cacheFormats.setLabel(new ResourceModel("cacheFormats"));
         configs.add(cacheFormats);
 
-<<<<<<< HEAD
-        final List<String> formats = Arrays.asList("image/png", "image/png8", "image/jpeg",
-                "image/gif", "application/json;type=topojson");
-=======
         final List<String> formats;
         formats = Lists.newArrayList(GWC.get().getAdvertisedCachedFormats(info.getType()));
->>>>>>> fff48155bd6a45f8ca3276ab5e42eda4d750e919
 
         ListView<String> cacheFormatsList = new ListView<String>("cacheFormats", formats) {
             private static final long serialVersionUID = 1L;

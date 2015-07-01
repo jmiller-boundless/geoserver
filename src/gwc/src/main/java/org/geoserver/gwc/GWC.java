@@ -144,10 +144,6 @@ import com.vividsolutions.jts.geom.Polygon;
  * @version $Id$
  * 
  */
-/**
- * @author groldan
- * 
- */
 public class GWC implements DisposableBean, InitializingBean, ApplicationContextAware {
 
     private static final String GLOBAL_LOCK_KEY = "global";
@@ -2083,9 +2079,21 @@ public class GWC implements DisposableBean, InitializingBean, ApplicationContext
      * @param type the kind of geoserver published resource the tile layer is tied to.
      * @return the set of advertised mime types for the given kind of tile layer origin
      */
-    public Set<String> getAdvertisedCachedFormats(final PublishedType type) {
+    public static Set<String> getAdvertisedCachedFormats(final PublishedType type) {
 
         final String resourceName = "org/geoserver/gwc/advertised_formats.properties";
+
+        try {
+            ClassLoader classLoader = GWC.class.getClassLoader();
+            List<URL> urls = newArrayList(forEnumeration(classLoader.getResources(resourceName)));
+            return GWC.getAdvertisedCachedFormats(type, urls);
+        } catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+    
+    //visible for testing purposes only
+    static Set<String> getAdvertisedCachedFormats(final PublishedType type, final Iterable<URL> urls) throws IOException{
         final String formatsKey;
 
         switch (type) {
@@ -2104,23 +2112,17 @@ public class GWC implements DisposableBean, InitializingBean, ApplicationContext
             throw new IllegalArgumentException("Unknown published type: " + type);
         }
         Set<String> formats = new TreeSet<String>();
-        try {
-            ClassLoader classLoader = getClass().getClassLoader();
-            ArrayList<URL> urls = newArrayList(forEnumeration(classLoader.getResources(resourceName)));
-            for (URL url : urls) {
-                Properties props = new Properties();
-                props.load(url.openStream());
-                String commaSeparatedFormats = props.getProperty(formatsKey);
-                if (commaSeparatedFormats != null) {
-                    List<String> splitToList = Splitter.on(",").omitEmptyStrings().trimResults()
-                            .splitToList(commaSeparatedFormats);
-                    formats.addAll(splitToList);
-                }
+
+        for (URL url : urls) {
+            Properties props = new Properties();
+            props.load(url.openStream());
+            String commaSeparatedFormats = props.getProperty(formatsKey);
+            if (commaSeparatedFormats != null) {
+                List<String> splitToList = Splitter.on(",").omitEmptyStrings().trimResults()
+                        .splitToList(commaSeparatedFormats);
+                formats.addAll(splitToList);
             }
-        } catch (IOException e) {
-            throw Throwables.propagate(e);
         }
         return formats;
     }
-    
 }

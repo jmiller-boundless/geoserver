@@ -13,6 +13,13 @@
   <artifactId>gs-vectortiles</artifactId>
   <packaging>jar</packaging>
   <name>Vector Tiles</name>
+  
+  <repositories>
+    <repository>
+        <id>ECC</id>
+        <url>https://github.com/ElectronicChartCentre/ecc-mvn-repo/raw/master/releases</url>
+    </repository>
+  </repositories>
 
   <dependencies>
     <dependency>
@@ -31,6 +38,11 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>no.ecc.vectortile</groupId>
+      <artifactId>java-vector-tile</artifactId>
+      <version>1.0.8</version>
+    </dependency>
+    <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-main</artifactId>
       <version>${project.version}</version>
@@ -42,5 +54,19 @@
       <artifactId>mockito-core</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.geoserver</groupId>
+      <artifactId>gs-wms</artifactId>
+      <version>${project.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.wicket</groupId>
+      <artifactId>wicket-spring</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
+
+
 </project>

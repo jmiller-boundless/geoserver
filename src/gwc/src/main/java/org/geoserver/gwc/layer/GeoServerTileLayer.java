@@ -1202,22 +1202,12 @@ public class GeoServerTileLayer extends TileLayer implements ProxyLayer {
         return;
     }
 
-<<<<<<< HEAD
-	@Override
-	public String getBlobStoreId() {
-		// TODO Auto-generated method stub
-		return null;
-	}
+
 
 	@Override
 	public void setBlobStoreId(String arg0) {
 		// TODO Auto-generated method stub
 		
 	}
-=======
-    @Override
-    public void setBlobStoreId(String blobStoreId) {
-        info.setBlobStoreId(blobStoreId);
-    }
->>>>>>> fff48155bd6a45f8ca3276ab5e42eda4d750e919
+
 }
