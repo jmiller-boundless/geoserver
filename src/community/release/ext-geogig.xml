@@ -45,6 +45,8 @@
             <include>jcommander-*.jar</include>
             <!-- jansi libs -->
             <include>jansi-*.jar</include>
+            <!-- Restlet fileupload -->
+            <include>org.restlet.ext.fileupload-*.jar</include>
         </includes>
         <excludes>
             <exclude>*test*</exclude>
